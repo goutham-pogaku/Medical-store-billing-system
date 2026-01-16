@@ -74,24 +74,24 @@ const validateRegistration = [
     .isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
   
   body('phone')
-    .optional()
+    .optional({ checkFalsy: true })
     .trim()
     .matches(/^[0-9+\-\s()]+$/).withMessage('Invalid phone number format')
     .customSanitizer(sanitizeInput),
   
   body('address')
-    .optional()
+    .optional({ checkFalsy: true })
     .trim()
     .customSanitizer(sanitizeInput),
   
   body('gstNumber')
-    .optional()
+    .optional({ checkFalsy: true })
     .trim()
     .matches(/^[A-Z0-9]+$/).withMessage('Invalid GST number format')
     .customSanitizer(sanitizeInput),
   
   body('licenseNumber')
-    .optional()
+    .optional({ checkFalsy: true })
     .trim()
     .customSanitizer(sanitizeInput),
   
