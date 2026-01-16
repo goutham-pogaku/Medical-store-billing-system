@@ -16,8 +16,7 @@ async function createTables() {
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
-      family: 4,   // Force IPv4 only
-      connectTimeout: 20000
+      connectTimeout: 30000 // Increased timeout for DNS resolution
     };
 
     // Add SSL if configured

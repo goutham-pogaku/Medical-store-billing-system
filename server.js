@@ -22,11 +22,14 @@ const {
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Test database connection (non-blocking)
-testConnection().catch(err => {
-  console.error('⚠️ Initial database connection test failed, but server will continue');
-  console.error('⚠️ Database operations will be retried on each request');
-});
+// Test database connection (non-blocking with longer delay)
+// Give network time to initialize before testing
+setTimeout(() => {
+  testConnection().catch(err => {
+    console.error('⚠️ Initial database connection test failed, but server will continue');
+    console.error('⚠️ Database operations will be retried on each request');
+  });
+}, 5000); // Wait 5 seconds after server starts
 
 // Middleware
 const corsOptions = {

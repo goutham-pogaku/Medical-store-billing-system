@@ -18,8 +18,7 @@ const dbConfig = {
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  family: 4,   // Force IPv4 only
-  connectTimeout: 20000,
+  connectTimeout: 30000, // Increased timeout for DNS resolution
   // Pool-specific settings
   waitForConnections: true,
   connectionLimit: 10,
@@ -66,21 +65,54 @@ if (process.env.DB_SSL_CA) {
 
 console.log('Creating connection pool...');
 let pool;
+let poolCreationError = null;
 
 try {
   pool = mysql.createPool(dbConfig);
   console.log('✅ Connection pool created');
 } catch (error) {
   console.error('❌ Failed to create connection pool:', error.message);
+  poolCreationError = error;
   // Create a basic pool without SSL as fallback
   const fallbackConfig = { ...dbConfig };
   delete fallbackConfig.ssl;
-  pool = mysql.createPool(fallbackConfig);
-  console.log('⚠️ Created fallback connection pool without SSL');
+  try {
+    pool = mysql.createPool(fallbackConfig);
+    console.log('⚠️ Created fallback connection pool without SSL');
+  } catch (fallbackError) {
+    console.error('❌ Fallback pool creation also failed:', fallbackError.message);
+  }
 }
 
+// Lazy connection getter - creates connection on first use
+const getPool = () => {
+  if (!pool && poolCreationError) {
+    console.log('Attempting to recreate connection pool...');
+    try {
+      pool = mysql.createPool(dbConfig);
+      poolCreationError = null;
+      console.log('✅ Connection pool recreated successfully');
+    } catch (error) {
+      console.error('❌ Pool recreation failed:', error.message);
+    }
+  }
+  return pool;
+};
+
 // Test connection with retry logic
-const testConnection = async (retries = 3, delay = 2000) => {
+const testConnection = async (retries = 5, delay = 5000) => {
+  // Try to resolve DNS first
+  const dns = require('dns').promises;
+  
+  console.log('Attempting to resolve hostname:', process.env.DB_HOST);
+  try {
+    const addresses = await dns.resolve4(process.env.DB_HOST);
+    console.log('✅ DNS resolution successful:', addresses);
+  } catch (dnsError) {
+    console.error('❌ DNS resolution failed:', dnsError.message);
+    console.error('This might be a temporary network issue or incorrect hostname');
+  }
+  
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       console.log(`Testing database connection... (Attempt ${attempt}/${retries})`);
@@ -114,6 +146,14 @@ const testConnection = async (retries = 3, delay = 2000) => {
       console.error('Error code:', error.code);
       console.error('Error errno:', error.errno);
       
+      if (error.code === 'ENOTFOUND') {
+        console.error('💡 DNS lookup failed. Possible causes:');
+        console.error('   - Hostname is incorrect');
+        console.error('   - Network connectivity issue');
+        console.error('   - DNS server temporarily unavailable');
+        console.error('   - Check DB_HOST value:', process.env.DB_HOST);
+      }
+      
       if (attempt < retries) {
         console.log(`⏳ Retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -128,4 +168,4 @@ const testConnection = async (retries = 3, delay = 2000) => {
   return false;
 };
 
-module.exports = { pool, testConnection };
+module.exports = { pool, getPool, testConnection };
