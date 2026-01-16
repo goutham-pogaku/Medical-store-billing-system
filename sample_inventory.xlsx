@@ -1,0 +1,6 @@
+name,category,quantity,price,gst,batch_number,manufacturer
+Paracetamol 500mg,tablets,100,5.50,12,BATCH001,ABC Pharma
+Cough Syrup,syrups,50,45.00,18,BATCH002,XYZ Medicines
+Insulin Injection,injections,25,150.00,5,BATCH003,MediCorp
+Vitamin D3 Capsules,capsules,75,25.00,18,BATCH004,HealthPlus
+Pain Relief Gel,ointments,30,35.00,18,BATCH005,ReliefCare
