@@ -1,36 +1,61 @@
 const mysql = require('mysql2/promise');
 const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
 async function createTables() {
   let connection;
   
   try {
-    console.log('🔄 Connecting to Aiven MySQL...');
+    console.log('🔄 Connecting to MySQL database...');
 
-    // Aiven requires SSL certificate
-    const sslConfig = {
-      ca: fs.readFileSync(process.env.DB_SSL_CA)
+    // Build connection config
+    const connectionConfig = {
+      host: process.env.DB_HOST,
+      port: Number(process.env.DB_PORT) || 3306,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      family: 4,   // Force IPv4 only
+      connectTimeout: 20000
     };
 
-    // Connect to defaultdb (Aiven does NOT allow CREATE DATABASE)
-   connection = await mysql.createConnection({
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT),
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  ssl: {
-    ca: fs.readFileSync(process.env.DB_SSL_CA),
-    rejectUnauthorized: false
-  },
-  family: 4,   // << FORCE IPv4 only
-  connectTimeout: 20000
-});
+    // Add SSL if configured
+    if (process.env.DB_SSL_CA) {
+      try {
+        // Try multiple possible paths
+        const possiblePaths = [
+          process.env.DB_SSL_CA,
+          path.resolve(process.env.DB_SSL_CA),
+          path.join(__dirname, process.env.DB_SSL_CA),
+          path.join(process.cwd(), process.env.DB_SSL_CA)
+        ];
+        
+        let sslCaPath = null;
+        for (const testPath of possiblePaths) {
+          if (fs.existsSync(testPath)) {
+            sslCaPath = testPath;
+            break;
+          }
+        }
+        
+        if (sslCaPath) {
+          connectionConfig.ssl = {
+            ca: fs.readFileSync(sslCaPath),
+            rejectUnauthorized: false
+          };
+          console.log('✅ SSL configuration added');
+        } else {
+          console.warn('⚠️ SSL CA file not found, proceeding without SSL');
+        }
+      } catch (sslError) {
+        console.warn('⚠️ Error loading SSL certificate:', sslError.message);
+        console.warn('⚠️ Proceeding without SSL');
+      }
+    }
 
-
-
-    console.log('✅ Connected successfully to Aiven!');
+    connection = await mysql.createConnection(connectionConfig);
+    console.log('✅ Connected successfully to database!');
 
     // merchants
     console.log('🔄 Creating merchants table...');
@@ -217,13 +242,18 @@ async function createTables() {
       )
     `);
 
-    console.log('🎉 All tables created successfully — NO sample data inserted.');
+    console.log('🎉 All tables created successfully!');
+    return { success: true, message: 'All tables created successfully' };
 
   } catch (error) {
-    console.error('❌ Error:', error.message);
+    console.error('❌ Error creating tables:', error.message);
+    console.error('Error code:', error.code);
+    console.error('Error stack:', error.stack);
+    return { success: false, error: error.message };
   } finally {
     if (connection) {
       await connection.end();
+      console.log('Database connection closed');
     }
   }
 }

@@ -22,8 +22,11 @@ const {
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Test database connection
-testConnection();
+// Test database connection (non-blocking)
+testConnection().catch(err => {
+  console.error('⚠️ Initial database connection test failed, but server will continue');
+  console.error('⚠️ Database operations will be retried on each request');
+});
 
 // Middleware
 const corsOptions = {
@@ -55,11 +58,32 @@ app.use(express.static('uploads'));
 
 
 app.get("/run-db-setup", async (req, res) => {
+  console.log('=== DATABASE SETUP REQUESTED ===');
   try {
-    await createTables();
-    res.send("✔ Tables created successfully!");
+    const result = await createTables();
+    if (result.success) {
+      console.log('✅ Database setup completed successfully');
+      res.json({ 
+        success: true, 
+        message: "✔ Tables created successfully!",
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      console.error('❌ Database setup failed:', result.error);
+      res.status(500).json({ 
+        success: false, 
+        error: result.error,
+        message: "❌ Error: " + result.error
+      });
+    }
   } catch (err) {
-    res.send("❌ Error: " + err.message);
+    console.error('❌ Database setup error:', err.message);
+    console.error('Error stack:', err.stack);
+    res.status(500).json({ 
+      success: false, 
+      error: err.message,
+      message: "❌ Error: " + err.message
+    });
   }
 });
 
