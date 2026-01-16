@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Registration</title>
+    <style>
+        body { font-family: Arial; padding: 20px; max-width: 600px; margin: 0 auto; }
+        input, button { display: block; margin: 10px 0; padding: 10px; width: 100%; }
+        button { background: #007bff; color: white; border: none; cursor: pointer; }
+        .result { margin-top: 20px; padding: 15px; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        pre { background: #f5f5f5; padding: 10px; overflow: auto; }
+    </style>
+</head>
+<body>
+    <h1>Test Registration</h1>
+    
+    <form id="regForm">
+        <input type="text" id="storeName" placeholder="Store Name" value="Test Pharmacy" required>
+        <input type="text" id="ownerName" placeholder="Owner Name" value="John Doe" required>
+        <input type="email" id="email" placeholder="Email" value="test@example.com" required>
+        <input type="password" id="password" placeholder="Password" value="password123" required>
+        <input type="tel" id="phone" placeholder="Phone" value="1234567890">
+        <input type="text" id="address" placeholder="Address" value="123 Test St">
+        <input type="text" id="gstNumber" placeholder="GST Number (optional)">
+        <input type="text" id="licenseNumber" placeholder="License Number (optional)">
+        <button type="submit">Register</button>
+    </form>
+    
+    <div id="result"></div>
+    
+    <script>
+        document.getElementById('regForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<p>Sending request...</p>';
+            
+            const data = {
+                storeName: document.getElementById('storeName').value,
+                ownerName: document.getElementById('ownerName').value,
+                email: document.getElementById('email').value,
+                password: document.getElementById('password').value,
+                phone: document.getElementById('phone').value,
+                address: document.getElementById('address').value,
+                gstNumber: document.getElementById('gstNumber').value,
+                licenseNumber: document.getElementById('licenseNumber').value
+            };
+            
+            console.log('Sending data:', data);
+            
+            try {
+                const response = await fetch('https://medical-store-billing-system.onrender.com/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+                
+                const result = await response.json();
+                console.log('Response data:', result);
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <h3>✅ Success!</h3>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                    `;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `
+                        <h3>❌ Error</h3>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    <h3>❌ Network Error</h3>
+                    <p>${error.message}</p>
+                    <p><strong>This is likely a CORS issue.</strong></p>
+                    <p>Check the browser console for more details.</p>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>

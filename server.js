@@ -33,9 +33,26 @@ setTimeout(() => {
 
 // Middleware
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://medical-store-billing-system.vercel.app', process.env.CLIENT_URL].filter(Boolean)
-    : ['http://localhost:3000', 'http://localhost:5000'],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'https://medical-store-billing-system.vercel.app',
+      'http://localhost:3000',
+      'http://localhost:5000'
+    ];
+    
+    // Allow all Vercel preview URLs
+    const isVercelPreview = origin.includes('.vercel.app');
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || isVercelPreview || process.env.CLIENT_URL === origin) {
+      callback(null, true);
+    } else {
+      console.warn('CORS blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   optionsSuccessStatus: 200
 };
@@ -108,6 +125,18 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // Auth Routes
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    routes: {
+      register: '/api/auth/register',
+      login: '/api/auth/login'
+    }
+  });
+});
+
 app.post('/api/auth/register', validateRegistration, async (req, res) => {
   console.log('=== REGISTRATION REQUEST ===');
   console.log('Request body:', JSON.stringify(req.body, null, 2));
