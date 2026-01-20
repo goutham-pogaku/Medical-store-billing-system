@@ -139,6 +139,46 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// JWT Debug endpoint
+app.get('/api/debug/jwt', (req, res) => {
+  console.log('=== JWT DEBUG ENDPOINT ===');
+  
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  
+  const debugInfo = {
+    timestamp: new Date().toISOString(),
+    jwtSecretConfigured: !!process.env.JWT_SECRET,
+    jwtSecretLength: process.env.JWT_SECRET?.length || 0,
+    tokenProvided: !!token,
+    tokenLength: token?.length || 0,
+    tokenPreview: token ? token.substring(0, 20) + '...' : null
+  };
+  
+  if (token && process.env.JWT_SECRET) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      debugInfo.tokenValid = true;
+      debugInfo.tokenPayload = {
+        merchantId: decoded.merchantId,
+        iat: decoded.iat,
+        exp: decoded.exp,
+        expiresAt: new Date(decoded.exp * 1000).toISOString(),
+        isExpired: decoded.exp < Date.now() / 1000
+      };
+    } catch (error) {
+      debugInfo.tokenValid = false;
+      debugInfo.tokenError = {
+        name: error.name,
+        message: error.message
+      };
+    }
+  }
+  
+  console.log('JWT Debug Info:', JSON.stringify(debugInfo, null, 2));
+  res.json(debugInfo);
+});
+
 app.post('/api/auth/register', validateRegistration, async (req, res) => {
   console.log('=== REGISTRATION REQUEST ===');
   console.log('Request body:', JSON.stringify(req.body, null, 2));
@@ -276,6 +316,15 @@ app.post('/api/auth/login', async (req, res) => {
     
     console.log('✅ Password verified');
     
+    // Check JWT_SECRET before creating token
+    if (!process.env.JWT_SECRET) {
+      console.error('❌ JWT_SECRET not configured');
+      return res.status(500).json({ error: 'Server configuration error - JWT_SECRET missing' });
+    }
+    
+    console.log('JWT_SECRET available:', !!process.env.JWT_SECRET);
+    console.log('JWT_SECRET length:', process.env.JWT_SECRET.length);
+    
     // Generate JWT token
     const token = jwt.sign(
       { merchantId: merchant.merchant_id },
@@ -283,7 +332,9 @@ app.post('/api/auth/login', async (req, res) => {
       { expiresIn: '24h' }
     );
     
-    console.log('✅ JWT token generated');
+    console.log('✅ JWT token generated successfully');
+    console.log('Token preview:', token.substring(0, 20) + '...');
+    console.log('Token will expire in 24 hours');
     console.log('✅ Login successful for:', merchant.email);
     
     res.json({
