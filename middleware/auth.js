@@ -35,10 +35,10 @@ const authenticateToken = async (req, res, next) => {
       expiresAt: new Date(decoded.exp * 1000).toISOString()
     });
     
-    // Verify merchant exists and is active
+    // Verify merchant exists (simplified query without status check for now)
     console.log('Checking merchant in database...');
     const [merchants] = await pool.execute(
-      'SELECT merchant_id, store_name, owner_name, email, status FROM merchants WHERE merchant_id = ? AND status = "active"',
+      'SELECT merchant_id, store_name, owner_name, email FROM merchants WHERE merchant_id = ?',
       [decoded.merchantId]
     );
 

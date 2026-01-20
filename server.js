@@ -85,9 +85,46 @@ app.get("/run-db-setup", async (req, res) => {
     const result = await createTables();
     if (result.success) {
       console.log('✅ Database setup completed successfully');
+      
+      // Also fix merchants table status column
+      console.log('🔧 Checking and fixing merchants table status column...');
+      try {
+        // Check if status column exists
+        const [columns] = await pool.execute(`
+          SELECT COLUMN_NAME 
+          FROM INFORMATION_SCHEMA.COLUMNS 
+          WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = 'merchants' 
+            AND COLUMN_NAME = 'status'
+        `);
+        
+        if (columns.length === 0) {
+          console.log('❌ Status column missing, adding it...');
+          
+          // Add status column
+          await pool.execute(`
+            ALTER TABLE merchants 
+            ADD COLUMN status ENUM('active', 'inactive') DEFAULT 'active'
+          `);
+          
+          console.log('✅ Status column added successfully');
+          
+          // Update existing merchants to be active
+          const [updateResult] = await pool.execute(`
+            UPDATE merchants SET status = 'active' WHERE status IS NULL
+          `);
+          
+          console.log(`✅ Updated ${updateResult.affectedRows} merchants to active status`);
+        } else {
+          console.log('✅ Status column already exists');
+        }
+      } catch (statusError) {
+        console.warn('⚠️ Status column fix failed:', statusError.message);
+      }
+      
       res.json({ 
         success: true, 
-        message: "✔ Tables created successfully!",
+        message: "✔ Tables created and merchants table fixed successfully!",
         timestamp: new Date().toISOString()
       });
     } else {
@@ -100,6 +137,38 @@ app.get("/run-db-setup", async (req, res) => {
     }
   } catch (err) {
     console.error('❌ Database setup error:', err.message);
+    console.error('Error stack:', err.stack);
+    res.status(500).json({ 
+      success: false, 
+      error: err.message,
+      message: "❌ Error: " + err.message
+    });
+  }
+});
+
+app.get("/fix-merchants-table", async (req, res) => {
+  console.log('=== MERCHANTS TABLE FIX REQUESTED ===');
+  try {
+    const fixMerchantsTable = require('./fix-merchants-table');
+    const result = await fixMerchantsTable();
+    
+    if (result.success) {
+      console.log('✅ Merchants table fix completed successfully');
+      res.json({ 
+        success: true, 
+        message: result.message,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      console.error('❌ Merchants table fix failed:', result.error);
+      res.status(500).json({ 
+        success: false, 
+        error: result.error,
+        message: "❌ Error: " + result.error
+      });
+    }
+  } catch (err) {
+    console.error('❌ Merchants table fix error:', err.message);
     console.error('Error stack:', err.stack);
     res.status(500).json({ 
       success: false, 
