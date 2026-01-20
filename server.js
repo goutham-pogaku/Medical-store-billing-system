@@ -38,13 +38,15 @@ const corsOptions = {
     if (!origin) return callback(null, true);
     
     const allowedOrigins = [
+      'https://www.pharmaclickhub.com',
+      'https://pharmaclickhub.com',
       'https://medical-store-billing-system.vercel.app',
       'http://localhost:3000',
       'http://localhost:5000'
     ];
     
-    // Allow all Vercel preview URLs
-    const isVercelPreview = origin.includes('.vercel.app');
+    // Allow all Vercel preview URLs for development
+    const isVercelPreview = origin && origin.includes('.vercel.app');
     
     if (allowedOrigins.indexOf(origin) !== -1 || isVercelPreview || process.env.CLIENT_URL === origin) {
       callback(null, true);
